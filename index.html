@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>KC Grade Grapher V.1</title>
+    <meta name="description" content="Simple client-side Powerschool grade grapher so you can see your grade curves!">
+
+    <!-- chart.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+    <h1 style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">KC Grade Grapher V.1.0</h1>
+    <pre style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+How to use:
+1. Open Powerschool (web version) and go to your class 
+2. Expand all tabs if applicable
+3. Ctrl+A the grades and copy and paste it in the textbox below
+4. Click somewhere on the page and it should update
+
+Notes:
+1. Everything here is done client side (only network is grabbing the chart.js library)
+2. You need Javascript enabled
+3. In this version (V.1.0), expect usually &plusmn;1% grade differences depending on how consistent your grade is
+    (This is because it does not scale properly (e.g. unit tests are worth more than quizzes))</pre>
+    <textarea id="input" onChange="detectV1(this.value);" ></textarea>
+    <div style="width:100%; height:500px;">
+        <canvas id="chart"></canvas>
+    </div>
+
+    <p id="finalmsg"></p>
+</body>
+<script>
+    function getInput() {
+        return document.getElementById("input").value;
+    }
+
+    let chart = new Chart(
+        document.getElementById('chart'), // CONTEXT
+        {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Grade %',
+                        data: [],
+                        lineTension: 0.4 // Makes it slightly smooth
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 100,
+                        ticks: {
+                            stepSize: 5
+                        }
+                    }
+                }
+            }
+        }   
+    )
+    // Detect data for non-expanded and expanded grades (BEST)
+    // Light alghorithm, of 1 iteration
+    function detectV1(input) {
+        var labels = [];
+        var data = [];
+        
+        // Init vars
+        var totalScored = 0;
+        var totalMax = 0;
+
+        // Split by lines, and iterate through it
+        var lines = input.split("\n");
+        lines.reverse();
+        
+        var lastDate = "N/A";
+
+        function isParsableFloat(str) {
+            const parsed = parseFloat(str);
+            return !isNaN(parsed);
+        }
+
+        lines.forEach(ln => {
+            if (!ln.includes("exempt")) {
+                try {
+                    if (ln.startsWith("(")) {
+                        // NON EXPAND
+                        // in which case, use the grades from the brackets
+                        // e.g. line can start with: (10/34)
+                        let values = ln.replaceAll("(", "").replaceAll(")", "").replaceAll(" ", "").split("/");
+
+                        let scored = values[0];
+                        let maxScore = values[1];
+
+                        if (isParsableFloat(scored) && isParsableFloat(maxScore)) {
+                            totalScored += parseFloat(scored);
+                            totalMax += parseFloat(maxScore);
+                            
+                            // Store to 2 decimal places
+                            data.push(Math.round(totalScored / totalMax * 100 * 100) / 100);
+                            labels.push(lastDate);
+                        }
+                    } else if (ln.includes("Score")) {
+                        // ASSUMPTIONS:
+                        // SCORE IS OUT OF 100
+                        // If you are in, e.g. 4 = max, this is cooked
+                        let maxScore = 100;
+                        let scored = parseInt(ln.split("Score")[1].split(' ')[0]);
+
+                        if (isParsableFloat(scored) && isParsableFloat(maxScore)) {
+                            totalScored += parseFloat(scored);
+                            totalMax += parseFloat(maxScore);
+                            
+                            // Store to 2 decimal places
+                            data.push(Math.round(totalScored / totalMax * 100 * 100) / 100);
+                            labels.push(lastDate);
+                        }
+                    } 
+                    
+                } catch (e) {
+                    console.error(e);
+                }
+            } 
+            try {
+                if (ln.substring(0,10).split("/").length == 3) {
+                    lastDate = ln.split("\t")[0]
+                }
+            } catch (e) {}
+        });
+
+        // Add the last date
+        labels.push(lastDate);
+
+        // Remove first date due to how the formatting works
+        labels.shift();
+
+        // Add N/A 
+        let length = data.length - labels.length;
+        if (length > 0) {
+            for (var i = 0; i < length; i++) {
+                labels.push("Unknown");
+            }
+        }
+
+        // Display avg
+        document.getElementById("finalmsg").textContent = `Detected current average: ${Math.round(totalScored / totalMax * 100 * 1000) / 1000}%`;
+
+        // Display graph
+        graph(data, labels);
+    }
+
+    function graph(data, labels) {
+        chart.data.datasets[0].data = data;
+        chart.data.labels = labels;
+        //Update the chart
+        chart.update();
+       
+    }
+</script>
+</html>
