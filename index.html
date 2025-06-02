@@ -24,9 +24,10 @@ Notes:
 3. In this version (V.1.0), expect usually &plusmn;1% grade differences depending on how consistent your grade is
     (This is because it does not scale properly (e.g. unit tests are worth more than quizzes))</pre>
     <textarea id="input" onChange="detectV1(this.value);" ></textarea>
-    <div style="width:100%; height:500px;">
+    <div style="width:100%; height:500px; padding:12px">
         <canvas id="chart"></canvas>
     </div>
+    <button onclick="detectV1(getInput())">Graph</button>
 
     <p id="finalmsg"></p>
 </body>
